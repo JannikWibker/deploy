@@ -1,0 +1,2 @@
+{"name":"website","version":"0.1.0","repo":"https://github.com/JannikWibker/website-v2.git","build":["yarn","yarn build"],"command":"yarn start","env":[],"port":[5000],"_id":"ZtBul1MPqTx3jrwo"}
+{"name":"website","version":"0.1.0","repo":"https://github.com/JannikWibker/website-v2.git","build":["yarn","yarn build"],"command":"yarn start","env":[],"port":[5000],"_id":"ZtBul1MPqTx3jrwo"}
