@@ -10,7 +10,7 @@ const PORT = 9123
 
 const app = express()
 
-const path = `${process.cwd()}/deployments`
+const path = `${process.cwd() !== '/' ? process.cwd() : __dirname}/deployments`
 console.log(path)
 
 const running = {}
