@@ -28,7 +28,7 @@ const recursive_kill = (pid, name, cb) => {
       do
         pgrep -P $line2 | while read line3;
         do
-          prgrep -P $line3 | while read line4
+          pgrep -P $line3 | while read line4
           do
             echo $line4
             kill -15 $line4;
