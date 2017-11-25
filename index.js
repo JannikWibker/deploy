@@ -57,7 +57,7 @@ const createInstance = (instance, cb) => {
     git clone ${instance.repo} ${instance.name} | tee -a ${path}/${instance.name}/buildlog.txt
     cd ${instance.name}
   fi
-  # ${instance.build.map(x => x + ` | tee -a ${path}/${instance.name}/buildlog.txt`).join('\n')}
+  ${instance.build.map(x => x + ` | tee -a ${path}/${instance.name}/buildlog.txt`).join('\n')}
   commit=$(git log -n 1 origin/master --pretty=format:"%H")
   echo "GIT_COMMIT:$commit:GIT_COMMIT"
   echo "instance ${instance.name} was created ($commit)."
