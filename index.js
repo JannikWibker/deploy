@@ -28,6 +28,11 @@ const recursive_kill = (pid, name, cb) => {
       do
         pgrep -P $line2 | while read line3;
         do
+          prgrep -P $line3 | while read line4
+          do
+            echo $line4
+            kill -15 $line4;
+          done;
           echo $line3
           kill -15 $line3;
         done;
@@ -122,7 +127,7 @@ app.post('/deploy/add', (req, res) => {
 
       recursive_kill(running[req.body.name].pid, req.body.name, (err, stderr, stdout) => {
         console.log(stdout.replace(/\\n/g, '\n'))
-      })
+      }).kill()
       running[req.body.name] = null
 
     } else {
@@ -167,7 +172,7 @@ app.post('/deploy/stop', (req, res) => {
   if(running[req.body.name]) {
     // if running kill instance and set running = null
     recursive_kill(running[req.body.name].pid, req.body.name, (err, stderr, stdout) => {
-      console.log(stdout.replace(/\\n/g, '\n'))
+      console.log(stdout.replace(/\\n/g, '\n'), stderr.replace(/\\n/g, '\n'))
     })
     res.write('\ninstance stopped.')
     res.end()
