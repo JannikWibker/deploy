@@ -1,8 +1,9 @@
+/* ## DEPENDENCIES AND SETUP ## */
+
 const express = require('express')
 const bodyParser = require('body-parser')
 const Datastore = require('nedb')
 const db = new Datastore({filename: 'db/deploy', autoload: true})
-//const db = new Datastore()
 const { spawn, exec } = require('child_process')
 
 const PORT = 9123
@@ -13,6 +14,37 @@ const path = `${process.cwd()}/deployments`
 console.log(path)
 
 const running = {}
+
+app.use(bodyParser.json());
+app.use(express.static('client'))
+
+/* ## RECURSIVE KILL UTIL ## */
+
+const recursive_kill = (pid, name, cb) => {
+  const str = `
+    pgrep -P ${pid} | while read line1;
+    do
+      pgrep -P $line1 | while read line2;
+      do
+        pgrep -P $line2 | while read line3;
+        do
+          echo $line3
+          kill -15 $line3;
+        done;
+        echo $line2
+        kill -15 $line2;
+      done;
+      echo $line1
+      if ps -p $line1 > /dev/null
+      then
+        kill -15 $line1
+      fi
+    done;
+    echo ${pid};`
+  exec(str, {cwd: `${path}/${name}`}, cb)
+}
+
+/* ## CREATE INSTANCE ## */
 
 const createInstance = (instance, cb) => {
   const bash = spawn('bash', ['-'], {cwd: path})
@@ -45,6 +77,8 @@ const createInstance = (instance, cb) => {
   })
 }
 
+/* ## START INSTANCE ## */
+
 const startInstance = (instance) => {
   const bash = exec(`${instance.command} | tee -a ${`${path}/${instance.name}/log.txt`}`, {cwd: `${path}/${instance.name}`}, (err, stderr, stdout) => {
     console.log(stdout.replace(/\\n/g, '\n'))
@@ -52,15 +86,20 @@ const startInstance = (instance) => {
   return bash
 }
 
+/* ## DB ON STARTUP ## */
+
 db.find({}, (err, docs) => {
   console.log(err, docs)
+  docs.map(instance => {
+    console.log('[deploy] auto-starting instance ' + instance.name)
+    running[instance.name] = startInstance(instance)
+  })
 })
 
-app.use(bodyParser.json());
-app.use(express.static('client'))
+/* ## API ENDPOINTS ## */
 
 app.post('/deploy/add', (req, res) => {
-  console.log('add instance')
+  console.log('[deploy] add instance')
   res.write('should deploy now ')
 
   const obj = {
@@ -76,36 +115,20 @@ app.post('/deploy/add', (req, res) => {
   const cb = (err, doc) => {
     if(err) throw err;
     if(running[req.body.name]) {
+      // if an instance is already running stop it and set running = null
       res.write('\nstopping currently running instance')
       res.end()
-      console.log('instance running; stopping..')
-      const str = `
-      pgrep -P ${running[req.body.name].pid} | while read line1;
-      do
-        pgrep -P $line1 | while read line2;
-        do
-          pgrep -P $line2 | while read line3;
-          do
-            echo $line3
-            kill -15 $line3;
-          done;
-          echo $line2
-          kill -15 $line2;
-        done;
-        echo $line1
-        if ps -p $line1 > /dev/null
-        then
-          kill -15 $line1
-        fi
-      done;
-      echo ${running[req.body.name].pid};`
-      const killprocess = exec(str, {cwd: `${path}/${req.body.name}`}, (err, stderr, stdout) => {
+      console.log('[deploy] instance running; stopping..')
+
+      recursive_kill(running[req.body.name].pid, req.body.name, (err, stderr, stdout) => {
         console.log(stdout.replace(/\\n/g, '\n'))
       })
       running[req.body.name] = null
+
     } else {
       res.end()
     }
+    // create instance
     createInstance(doc, (git_log, build_log, commit_log) => {
       console.log('GIT LOG: ', git_log, 'BUILD LOG: ', build_log, 'COMMIT LOG: ', commit_log)
       db.update({_id: doc._id}, { $set: {'data.last_commit': commit_log}}, (err, num_replaced) =>
@@ -113,6 +136,7 @@ app.post('/deploy/add', (req, res) => {
     })
 
   }
+  // update existing data in DB or add new data if it doesn't exist
   db.findOne({name: req.body.name}, (err, doc) => {
     if(err) throw err;
     if(doc) {
@@ -126,7 +150,7 @@ app.post('/deploy/add', (req, res) => {
 })
 
 app.post('/deploy/start', (req, res) => {
-  console.log('start instance')
+  console.log('[deploy] start instance')
   res.write('should start instance now')
   db.findOne({name: req.body.name}, (err, doc) => {
     if(err) throw err;
@@ -138,36 +162,18 @@ app.post('/deploy/start', (req, res) => {
 })
 
 app.post('/deploy/stop', (req, res) => {
-  console.log('stop instance')
+  console.log('[deploy] stop instance')
   res.write('should kill instance now')
   if(running[req.body.name]) {
-    const str = `
-    pgrep -P ${running[req.body.name].pid} | while read line1;
-    do
-      pgrep -P $line1 | while read line2;
-      do
-        pgrep -P $line2 | while read line3;
-        do
-          echo $line3
-          kill -15 $line3;
-        done;
-        echo $line2
-        kill -15 $line2;
-      done;
-      echo $line1
-      if ps -p $line1 > /dev/null
-      then
-        kill -15 $line1
-      fi
-    done;
-    echo ${running[req.body.name].pid};`
-    const killprocess = exec(str, {cwd: `${path}/${req.body.name}`}, (err, stderr, stdout) => {
+    // if running kill instance and set running = null
+    recursive_kill(running[req.body.name].pid, req.body.name, (err, stderr, stdout) => {
       console.log(stdout.replace(/\\n/g, '\n'))
     })
     res.write('\ninstance stopped.')
     res.end()
     running[req.body.name] = null
   } else {
+    // if not running report that instance could not be found
     res.write('\ninstance not found')
     res.end()
   }
