@@ -122,34 +122,40 @@ app.post('/deploy/stop', (req, res) => {
   }
 })
 
-app.get('/deploy/status/:name/:version', (req, res) => {
-  res.send('should get the status of the deployment (and the logs)')
-})
-
-app.post('/_/deploy/add', (req, res) => {
-  console.log('[deploy] add instance')
-
-  const instance = new Instance(req.body)
-
-  db.findOne({name: req.body.name}, (err, doc) => {
-    if(err) throw err;
-    if(doc) {
-      res.write('\nInstance already exists, aborting')
-    } else {
-      db.insert(instance.toObject(), (err, doc) => {
-        if(err) throw err;
-        if(Object.keys(running).includes(req.body.name)) {
-          res.write('\nInstance already running, aborting')
-        } else {
-          instance.create((git_log, build_log, commit_log) => {
-            running[req.body.name] = instance
-            console.log('GIT LOG: ', git_log, 'BUILD LOG: ', build_log, 'COMMIT LOG: ', commit_log)
-          })
-        }
+app.post('/deploy/status', (req, res) => {
+  switch (req.body.kind) {
+    case 'all_instances':
+      res.json({
+        instances: Object.values(instances).map(instance => instance.toObject()),
+        kind: 'all_instances'
       })
-      res.write('\nInstance added')
-    }
-  })
+      break;
+    case 'all_running':
+    res.json({
+      instances: Object.values(running).map(instance => instance.toObject()),
+      kind: 'all_running'
+    })
+      break;
+    case 'all_not_running':
+      res.json({
+        instances: Object.keys(instances).filter(name => !Object.keys(running).includes(name)).map(instance => instance.toObject()),
+        kind: 'all_not_running'
+      })
+      break;
+    case 'specific':
+        req.body.name ? res.json({
+          instances: [instances[req.body.name].toObject()],
+          kind: 'specific'
+        }) : res.json({
+          error: 'not enough information, name must be specified'
+        })
+      break;
+    default:
+      res.json({
+        error: 'not enough information, kind must be specified (one of: "all_instances", "all_running", "all_not_running")'
+      })
+  }
 })
+
 
 app.listen(PORT, () => console.log(`server started on port ${PORT}`))
