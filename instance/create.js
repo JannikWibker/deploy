@@ -27,6 +27,7 @@ const createInstance = (spawn, path, instance, cb) => {
     }
     if(str.indexOf('finished.') !== -1) bash.kill('SIGINT')
   })
+  bash.stdout.on('end', () => cb())
 }
 
 module.exports = createInstance

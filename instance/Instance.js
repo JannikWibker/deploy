@@ -1,7 +1,6 @@
 const createInstance = require('./create.js')
 const startInstance = require('./start.js')
 const stopInstance = require('./stop.js')
-const updateInstance = require('./update.js')
 const deleteInstance = require('./delete.js')
 
 module.exports = (spawn, exec, path, db) => {
@@ -41,7 +40,7 @@ module.exports = (spawn, exec, path, db) => {
 
     update(cb) {
       console.log('[Instance] update')
-      return updateInstance(path, this, cb)
+      return createInstance(spawn, path, this, cb)
     }
 
     delete(cb) {

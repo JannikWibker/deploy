@@ -71,11 +71,43 @@ app.post('/deploy/add', (req, res) => {
 app.post('/deploy/update', (req, res) => {
   console.log('[deploy] update instance')
   res.write('[deploy] update instance')
+
+  if(Object.keys(instances).includes(req.body.name)) {
+    if(Object.keys(running).includes(req.body.name)) {
+      res.write('\nInstance is running, aborting')
+      res.end()
+    } else {
+      instances[req.body.name].update(x => {
+        res.write('\nInstance updated')
+        res.end()
+      })
+    }
+  } else {
+    res.write('\nInstance does not exist, aborting')
+    res.end()
+  }
 })
 
 app.post('/deploy/delete', (req, res) => {
   console.log('[deploy] delete instance')
   res.write('[deploy] delete instance')
+
+  if(Object.keys(instances).includes(req.body.name)) {
+    if(Object.keys(running).includes(req.body.name)) {
+      res.write('\nInstance is running, aborting')
+      res.end()
+    } else {
+      instances[req.body.name].delete(x => {
+        delete instances[req.body.name]
+        db.remove({name: req.body.name}, {multi: false}, console.log)
+        res.write('\nInstance deleted')
+        res.end()
+      })
+    }
+  } else {
+    res.write('\nInstance does not exist, aborting')
+    res.end()
+  }
 })
 
 app.post('/deploy/start', (req, res) => {
@@ -138,7 +170,9 @@ app.post('/deploy/status', (req, res) => {
       break;
     case 'all_not_running':
       res.json({
-        instances: Object.keys(instances).filter(name => !Object.keys(running).includes(name)).map(instance => instance.toObject()),
+        instances: Object.keys(instances)
+          .filter(name => !Object.keys(running).includes(name))
+          .map(instance => instances[instance].toObject()),
         kind: 'all_not_running'
       })
       break;
