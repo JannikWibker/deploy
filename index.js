@@ -13,179 +13,143 @@ const app = express()
 const path = `${process.cwd() !== '/' ? process.cwd() : __dirname}/deployments`
 console.log(path)
 
+const Instance = require('./instance/Instance.js')(spawn, exec, path)
+
+const instances = {}
 const running = {}
 
+
 app.use(bodyParser.json());
-app.use(express.static('client'))
+app.use('/', express.static('client'))
 
-/* ## RECURSIVE KILL UTIL ## */
-
-const recursive_kill = (pid, name, cb) => {
-  const str = `
-    pgrep -P ${pid} | while read line1;
-    do
-      pgrep -P $line1 | while read line2;
-      do
-        pgrep -P $line2 | while read line3;
-        do
-          pgrep -P $line3 | while read line4
-          do
-            echo $line4
-            kill -15 $line4;
-          done;
-          echo $line3
-          kill -15 $line3;
-        done;
-        echo $line2
-        kill -15 $line2;
-      done;
-      echo $line1
-      if ps -p $line1 > /dev/null
-      then
-        kill -15 $line1
-      fi
-    done;
-    echo ${pid};`
-  exec(str, {cwd: `${path}/${name}`}, cb)
-}
-
-/* ## CREATE INSTANCE ## */
-
-const createInstance = (instance, cb) => {
-  const bash = spawn('bash', ['-'], {cwd: path})
-  bash.stdin.write(`
-  trap "kill -9 $$" SIGINT
-  if [ -d ${instance.name} ]; then
-    cd ${instance.name}
-    git pull origin master | tee -a ${path}/${instance.name}/buildlog.txt
-  else
-    git clone ${instance.repo} ${instance.name} | tee -a ${path}/${instance.name}/buildlog.txt
-    cd ${instance.name}
-  fi
-  ${instance.build.map(x => x + ` | tee -a ${path}/${instance.name}/buildlog.txt`).join('\n')}
-  commit=$(git log -n 1 origin/master --pretty=format:"%H")
-  echo "GIT_COMMIT:$commit:GIT_COMMIT"
-  echo "instance ${instance.name} was created ($commit)."
-  echo "finished."
-  kill -9 $$
-  `)
-  let str = ''
-  bash.stdout.on('data', x => {
-    console.log('' + x)
-    str += x
-    const idx_start = str.indexOf('GIT_COMMIT:')
-    const idx_end = str.indexOf(':GIT_COMMIT')
-    if(idx_start !== -1 && idx_end !== -1) {
-      console.log('found git commit: ', str.substring(idx_start+10, idx_end))
-    }
-    if(str.indexOf('finished.') !== -1) bash.kill('SIGINT')
-  })
-}
-
-/* ## START INSTANCE ## */
-
-const startInstance = (instance) => {
-  const bash = exec(`${instance.command} | tee -a ${`${path}/${instance.name}/log.txt`}`, {cwd: `${path}/${instance.name}`}, (err, stderr, stdout) => {
-    console.log(stdout.replace(/\\n/g, '\n'))
-  })
-  return bash
-}
 
 /* ## DB ON STARTUP ## */
 
 db.find({}, (err, docs) => {
-  console.log(err, docs)
-  docs.map(instance => {
-    console.log('[deploy] auto-starting instance ' + instance.name)
-    running[instance.name] = startInstance(instance)
-  })
+  if(err) throw err;
+
+  if(docs) {
+    docs.map(instance => {
+      instances[instance.name] = new Instance(instance)
+      if(instance.is_running) {
+        console.log('[deploy] auto-starting instance: ' + instance.name)
+        instances[instance.name].start(x => running[instance.name] = instances[instance.name])
+      } else {
+        console.log('[deploy] not auto-starting instance: ' + instance.name)
+      }
+    })
+  }
 })
 
 /* ## API ENDPOINTS ## */
 
 app.post('/deploy/add', (req, res) => {
   console.log('[deploy] add instance')
-  res.write('should deploy now ')
+  res.write('[deploy] add instance')
 
-  const obj = {
-    name: req.body.name,
-    version: req.body.version,
-    repo: req.body.repo,
-    build: Array.isArray(req.body.build) ? req.body.build : [req.body.build],
-    command: req.body.command,
-    env: Array.isArray(req.body.env) ? req.body.env : [req.body.env],
-    port: Array.isArray(req.body.port) ? req.body.port : [req.body.port],
-  }
-
-  const cb = (err, doc) => {
-    if(err) throw err;
-    if(running[req.body.name]) {
-      // if an instance is already running stop it and set running = null
-      res.write('\nstopping currently running instance')
+  if(Object.keys(instances).includes(req.body.name)) {
+    if(Object.keys(running).includes(req.body.name)) {
+      res.write('\nInstance already running, aborting')
       res.end()
-      console.log('[deploy] instance running; stopping..')
-
-      recursive_kill(running[req.body.name].pid, req.body.name, (err, stderr, stdout) => {
-        console.log(stdout.replace(/\\n/g, '\n'))
-      }).kill()
-      running[req.body.name] = null
-
     } else {
+      res.write('\nInstance already exists, aborting')
       res.end()
     }
-    // create instance
-    createInstance(doc, (git_log, build_log, commit_log) => {
+  } else {
+    const instance = new Instance(req.body)
+    instances[req.body.name] = instance
+    db.insert(instance.toObject(), console.log)
+    res.write('\nInstance added')
+    res.end()
+    instance.create((git_log, build_log, commit_log) => {
+      running[req.body.name] = instance
       console.log('GIT LOG: ', git_log, 'BUILD LOG: ', build_log, 'COMMIT LOG: ', commit_log)
-      db.update({_id: doc._id}, { $set: {'data.last_commit': commit_log}}, (err, num_replaced) =>
-        console.log(err, num_replaced))
     })
-
   }
-  // update existing data in DB or add new data if it doesn't exist
-  db.findOne({name: req.body.name}, (err, doc) => {
-    if(err) throw err;
-    if(doc) {
-      db.update({name: req.body.name}, obj, (err, numReplaced) => cb(err, obj))
-      res.write('\nreplacing instance')
-    } else {
-      db.insert(obj, cb)
-      res.write('\nadding instance')
-    }
-  })
+})
+
+app.post('/deploy/update', (req, res) => {
+  console.log('[deploy] update instance')
+  res.write('[deploy] update instance')
+})
+
+app.post('/deploy/delete', (req, res) => {
+  console.log('[deploy] delete instance')
+  res.write('[deploy] delete instance')
 })
 
 app.post('/deploy/start', (req, res) => {
   console.log('[deploy] start instance')
-  res.write('should start instance now')
-  db.findOne({name: req.body.name}, (err, doc) => {
-    if(err) throw err;
-    console.log(doc)
-    running[req.body.name] = startInstance(doc)
-    res.write('\ninstance started')
+  res.write('[deploy] start instance')
+
+  if(Object.keys(instances).includes(req.body.name)) {
+    if(Object.keys(running).includes(req.body.name)) {
+      res.write('\nInstance already running, aborting')
+      res.end()
+    } else {
+      instances[req.body.name].start(x => {
+        db.update({name: req.body.name}, {$set: {is_running: true}}, console.log)
+        running[req.body.name] = instances[req.body.name]
+        res.write('\nInstance started')
+        res.end()
+      })
+    }
+  } else {
+    res.write('\Instance does not exist, aborting')
     res.end()
-  })
+  }
 })
 
 app.post('/deploy/stop', (req, res) => {
   console.log('[deploy] stop instance')
-  res.write('should kill instance now')
-  if(running[req.body.name]) {
-    // if running kill instance and set running = null
-    recursive_kill(running[req.body.name].pid, req.body.name, (err, stderr, stdout) => {
-      console.log(stdout.replace(/\\n/g, '\n'), stderr.replace(/\\n/g, '\n'))
-    })
-    res.write('\ninstance stopped.')
-    res.end()
-    running[req.body.name] = null
+  res.write('[deploy] stop instance')
+
+  if(Object.keys(instances).includes(req.body.name)) {
+    if(Object.keys(running).includes(req.body.name)) {
+      instances[req.body.name].stop(x => {
+        db.update({name: req.body.name}, {$set: {is_running: false}}, console.log)
+        delete running[req.body.name]
+        res.write('\nInstance stopped')
+        res.end()
+      })
+    } else {
+      res.write('\Instance not running, aborting')
+      res.end()
+    }
   } else {
-    // if not running report that instance could not be found
-    res.write('\ninstance not found')
+    res.write('\Instance does not exist, aborting')
     res.end()
   }
 })
 
 app.get('/deploy/status/:name/:version', (req, res) => {
   res.send('should get the status of the deployment (and the logs)')
+})
+
+app.post('/_/deploy/add', (req, res) => {
+  console.log('[deploy] add instance')
+
+  const instance = new Instance(req.body)
+
+  db.findOne({name: req.body.name}, (err, doc) => {
+    if(err) throw err;
+    if(doc) {
+      res.write('\nInstance already exists, aborting')
+    } else {
+      db.insert(instance.toObject(), (err, doc) => {
+        if(err) throw err;
+        if(Object.keys(running).includes(req.body.name)) {
+          res.write('\nInstance already running, aborting')
+        } else {
+          instance.create((git_log, build_log, commit_log) => {
+            running[req.body.name] = instance
+            console.log('GIT LOG: ', git_log, 'BUILD LOG: ', build_log, 'COMMIT LOG: ', commit_log)
+          })
+        }
+      })
+      res.write('\nInstance added')
+    }
+  })
 })
 
 app.listen(PORT, () => console.log(`server started on port ${PORT}`))
