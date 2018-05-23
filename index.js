@@ -196,7 +196,7 @@ app.post('/deploy/log', (req, res) => {
 
   if(Object.keys(instances).includes(req.body.name)) {
     instances[req.body.name].log(logs => {
-      res.json(Object.assign({ status_code: 70 }, logs) // Log success
+      res.json(Object.assign({ status_code: 70 }, logs)) // Log success
     })
   } else {
     res.write(status_code[01]) // Instance does not exist, aborting
