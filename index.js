@@ -63,6 +63,24 @@ db.find({}, (err, docs) => {
 
 /* ## API ENDPOINTS ## */
 
+app.post('/deploy/add/no_initialization', (req, res) => {
+  console.log('[deploy] add instance (no initialization)')
+
+  if(Object.keys(instances).includes(req.body.name)) {
+    if(Object.keys(running).includes(req.body.name)) {
+      res.json({status_code: 04}) // Instance is running, aborting
+    } else {
+      res.json({status_code: 02}) // Instance already exists, aborting
+    }
+  } else {
+    const instance = new Instance(req.body)
+    db.insert(instance.toObject(), (err, doc) => {
+      console.log({err: err, doc: doc})
+      res.json({status_code: 10})
+    })
+  }
+})
+
 app.post('/deploy/add', (req, res) => {
   console.log('[deploy] add instance')
 
@@ -76,7 +94,7 @@ app.post('/deploy/add', (req, res) => {
     const instance = new Instance(req.body)
     instances[req.body.name] = instance
     instance.create((git_log, build_log, commit_log) => {
-      db.insert(instance.toObject(), console.log)
+      db.insert(instance.toObject(), (err, doc) => console.log({err: err, doc: doc}))
       res.json({status_code: 10}) // Instance added
       // running[req.body.name] = instance // commented out because adding an Instance does not auto-start it anymore. Maybe added back in later with a special option or something
       console.log('GIT LOG: ', git_log, 'BUILD LOG: ', build_log, 'COMMIT LOG: ', commit_log)
