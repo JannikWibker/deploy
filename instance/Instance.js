@@ -14,7 +14,7 @@ module.exports = (spawn, exec, path, db) => {
           version: obj.version,
           repo: obj.repo,
           build: Array.isArray(obj.build) ? obj.build : [obj.build],
-          run: obj.run,
+          run: obj.run || obj.command,
           env: Array.isArray(obj.env) ? obj.env : [obj.env],
           port: Array.isArray(obj.port) ? obj.port : [obj.port],
         })

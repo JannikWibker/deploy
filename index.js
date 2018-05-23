@@ -1,16 +1,19 @@
 /* ## DEPENDENCIES AND SETUP ## */
 
+const root_path = process.cwd() !== '/' ? process.cwd() : __dirname
+console.log(root_path)
+
 const express = require('express')
 const bodyParser = require('body-parser')
 const Datastore = require('nedb')
-const db = new Datastore({filename: 'db/deploy', autoload: true})
+const db = new Datastore({filename: `${root_path}/db/deploy`, autoload: true})
 const { spawn, exec } = require('child_process')
 
 const PORT = 9123
 
 const app = express()
 
-const path = `${process.cwd() !== '/' ? process.cwd() : __dirname}/deployments`
+const path = `${root_path}/deployments`
 console.log(path)
 
 const Instance = require('./instance/Instance.js')(spawn, exec, path)
@@ -49,6 +52,7 @@ db.find({}, (err, docs) => {
       instances[instance.name] = new Instance(instance)
       if(instance.is_running) {
         console.log('[deploy] auto-starting instance: ' + instance.name)
+        console.log(instance)
         instances[instance.name].start(x => running[instance.name] = instances[instance.name])
       } else {
         console.log('[deploy] not auto-starting instance: ' + instance.name)
@@ -83,11 +87,14 @@ app.post('/deploy/add', (req, res) => {
 app.post('/deploy/update', (req, res) => {
   console.log('[deploy] update instance')
 
+  req.setTimeout(500000)
+
   if(Object.keys(instances).includes(req.body.name)) {
     if(Object.keys(running).includes(req.body.name)) {
       res.json({status_code: 04}) // Instance is running, aborting
     } else {
       instances[req.body.name].update(x => {
+        console.log('it should print this and then crash (ECONNRESET)')
         res.json({status_code: 20}) // Instance updated
       })
     }
