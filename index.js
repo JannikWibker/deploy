@@ -71,9 +71,9 @@ app.post('/deploy/add', (req, res) => {
   } else {
     const instance = new Instance(req.body)
     instances[req.body.name] = instance
-    db.insert(instance.toObject(), console.log)
-    res.json({status_code: 10}) // Instance added
     instance.create((git_log, build_log, commit_log) => {
+      db.insert(instance.toObject(), console.log)
+      res.json({status_code: 10}) // Instance added
       // running[req.body.name] = instance // commented out because adding an Instance does not auto-start it anymore. Maybe added back in later with a special option or something
       console.log('GIT LOG: ', git_log, 'BUILD LOG: ', build_log, 'COMMIT LOG: ', commit_log)
     })

@@ -25,7 +25,10 @@ const createInstance = (spawn, path, instance, cb) => {
     if(idx_start !== -1 && idx_end !== -1) {
       console.log('found git commit: ', str.substring(idx_start+10, idx_end))
     }
-    if(str.indexOf('finished.') !== -1) bash.kill('SIGINT')
+    if(str.indexOf('finished.') !== -1) {
+      bash.kill('SIGINT')
+      cb()
+    }
   })
   bash.stdout.on('end', () => cb())
 }
