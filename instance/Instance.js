@@ -2,6 +2,7 @@ const createInstance = require('./create.js')
 const startInstance = require('./start.js')
 const stopInstance = require('./stop.js')
 const deleteInstance = require('./delete.js')
+const logInstance = require('./log.js')
 
 module.exports = (spawn, exec, path, db) => {
 
@@ -46,6 +47,11 @@ module.exports = (spawn, exec, path, db) => {
     delete(cb) {
       console.log('[Instance] delete')
       return deleteInstance(path, this, cb)
+    }
+
+    log(cb) {
+      console.log('[Instance] log')
+      return logInstance(path, this, cb)
     }
 
     toObject() {
