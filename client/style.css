@@ -1,0 +1,89 @@
+:root {
+  --text-color: #000000;
+  --secondary-text-color: #141311;
+  --text-color-inverted: #ffffff;
+  --secondary-text-color-inverted: #ebecee;
+  --link-color: #1A00F2;
+  --background-color: #ffffff;
+  --secondary-background-color: #eceff3;
+  --background-color-inverted: #13100c;
+  --secondary_background-color-inverted: #000000;
+  --accent-color: rgb(248,28,229);
+  --accent-color-transparent: rgba(248,28,229,0.75);
+  --disabled-color: #888888;
+  --not-focused-color: #aaaaaa;
+  --focused-color: #000000;
+  --monospace-font: Menlo,Consolas,monospace;
+}
+
+body {
+  background:var(--background-color);
+  margin:0px;
+  padding:30px;
+  -webkit-font-smoothing:antialiased;
+  font-family:var(--monospace-font);
+}
+h1, h2, h3 {
+  font-weight:500;
+  color: var(--text-color);
+}
+h1 {
+  font-size:20px;
+}
+h2 {
+  font-size:16px;
+}
+h3 {
+  font-size:14px;
+}
+a {
+  color:var(--link-color);
+  text-decoration:none;
+}
+ul {
+  margin:0px;
+  padding:20px 0 0 0;
+}
+
+table thead th, table tbody td {
+  text-align: left;
+  min-width: 64px;
+  padding: 1px 4px;
+}
+
+label {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  text-align: left;
+  width: 100px;
+  color: var(--text-color);
+}
+
+input {
+  background-color: var(--background-color);
+  padding: 0 6px 3px 6px;
+  margin-bottom: 0px;
+  font-size: 12px;
+  font-weight: 500;
+  width: 100px;
+  border: none!important;
+  border-radius: 0!important;
+  border-bottom: 1px solid var(--not-focused-color)!important;
+  outline: none;
+}
+
+input:focus {
+  border-bottom: 1px solid var(--focused-color)!important;
+}
+
+input[disabled] {
+  color: var(--disabled-color);
+  font-size: 12px;
+  padding-left: 6px;
+  border: none!important;
+}
+
+input[disabled]:focus {
+  border: none;
+}

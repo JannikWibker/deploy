@@ -3,17 +3,54 @@
   <head>
     <meta charset="utf-8">
     <title>deploy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./style.css">
     <style>
-      body {
-        padding: 0px;
-        margin: 0px;
-      }
+    /* main */
+    main {
+      font-size: 12px;
+      padding-left: 4px;
+    }
+
+    div.section {
+      margin-top: 32px;
+    }
+
+    div.section h3 {
+      margin-bottom: 8px;
+    }
+
+    div.section.add div.add_deploy_button {
+      margin-left: 106px;
+      margin-top: 20px;
+      width: 100px;
+      text-align: center;
+    }
+
+    /* input */
+    .input_text {
+      height: 28px;
+    }
+
+    /* button */
+    span.button_colored_button {
+      margin: 8px;
+      color: var(--text-color);
+
+    }
+    span.button_colored_button:hover {
+      background-color: var(--accent-color-transparent);
+      color: var(--text-color-inverted);
+    }
     </style>
   </head>
   <body>
-    <div>
-      <div id="root">loading...</div>
-      <script src="./index.js"></script>
-    </div>
+    <header>
+      <h1>Deploy</h1>
+    </header>
+    <main id="root">
+      loading...
+    </main>
+    <script src="./bundle.js"></script>
   </body>
 </html>
