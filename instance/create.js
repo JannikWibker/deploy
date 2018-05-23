@@ -30,7 +30,7 @@ const createInstance = (spawn, path, instance, cb) => {
       cb()
     }
   })
-  bash.stdout.on('end', () => cb())
+  // bash.stdout.on('end', () => cb())
 }
 
 module.exports = createInstance
