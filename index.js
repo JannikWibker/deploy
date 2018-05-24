@@ -74,6 +74,7 @@ app.post('/deploy/add/no_initialization', (req, res) => {
     }
   } else {
     const instance = new Instance(req.body)
+    instances[req.body.name] = instance
     db.insert(instance.toObject(), (err, doc) => {
       console.log({err: err, doc: doc})
       res.json({status_code: 10})
